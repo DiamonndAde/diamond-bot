@@ -1,4 +1,3 @@
-from flask import Flask, render_template, request, redirect, url_for, send_from_directory
 import discord
 import requests
 from dotenv import load_dotenv
@@ -7,12 +6,7 @@ import json
 from web3 import Web3
 
 
-app = Flask(__name__)
-
-
 load_dotenv()
-
-app = Flask(__name__)
 
 intents = discord.Intents.all()
 intents.members = True  # subscribe to the on_member_join and on_member_remove events
@@ -75,26 +69,6 @@ def calculate_profit(wallet_address, contract_address):
     return profit
 
 
-@app.route('/')
-def index():
-    return 'Hello World!'
-
-
-@app.route('/profit', methods=['POST'])
-def calculate_profits():
-    data = request.json
-    wallet_address = data.get('wallet_address')
-    collection_name_or_id = data.get('collection_name_or_id')
-
-    contract_address = get_contract_address(collection_name_or_id)
-
-    if contract_address is None:
-        return {'error': f"Could not find contract address for {collection_name_or_id}"}
-
-    profit = calculate_profit(wallet_address, contract_address)
-    return {'profit': profit}
-
-
 @client.event
 async def on_ready():
     print(f'Logged in as {client.user}')
@@ -121,23 +95,14 @@ async def on_message(message):
         collection_name_or_id = await client.wait_for('message', check=lambda m: m.author == message.author)
         collection_name_or_id = collection_name_or_id.content.strip()
 
-        data = {'wallet_address': wallet_address,
-                'collection_name_or_id': collection_name_or_id}
-        response = request.post(
-            'diamond-bot.azurewebsites.net/profit', json=data)
+        contract_address = get_contract_address(collection_name_or_id)
 
-    if response.ok:
-        result = response.json()
-        if 'profit' in result:
-            await message.channel.send(f"Profit for {wallet_address} in {collection_name_or_id}: {result['profit']:.2f} ETH")
-        elif 'error' in result:
-            await message.channel.send(result['error'])
-    else:
-        await message.channel.send('Error calculating profit')
+    if contract_address is None:
+        await message.channel.send(f"Could not find contract address for {collection_name_or_id}")
+        return
 
+    profit = calculate_profit(wallet_address, contract_address)
+    await message.channel.send(f"Profit for {wallet_address} in {collection_name_or_id}: {profit:.2f} ETH")
 
+# Start Discord client
 client.run(os.getenv('DISCORD_TOKEN'))
-
-
-if __name__ == '__main__':
-    app.run()
