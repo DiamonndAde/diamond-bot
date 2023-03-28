@@ -1,16 +1,18 @@
 import discord
-from discord.ext import commands
 import requests
 from dotenv import load_dotenv
 import os
 import json
 from web3 import Web3
 
+
 load_dotenv()
 
-# Instantiate Discord bot
 intents = discord.Intents.all()
-bot = commands.Bot(command_prefix='/', intents=intents)
+intents.members = True  # subscribe to the on_member_join and on_member_remove events
+
+client = discord.Client(intents=intents)
+
 
 ETHERSCAN_API_KEY = os.getenv('ETHERSCAN_API_KEY')
 
@@ -67,29 +69,40 @@ def calculate_profit(wallet_address, contract_address):
     return profit
 
 
-@bot.event
+@client.event
 async def on_ready():
-    print(f'Logged in as {bot.user}')
+    print(f'Logged in as {client.user}')
 
 
-@bot.command()
-async def profit(ctx):
-    await ctx.send("Please enter your wallet address:")
-    wallet_address = await bot.wait_for('message', check=lambda m: m.author == ctx.author)
-    wallet_address = wallet_address.content.strip()
+@client.event
+async def on_message(message):
+    print(
+        f'Message from {message.author}: {message.content}, and the client user is {client.user}, {message}')
 
-    await ctx.send("Please enter the contract address or collection name:")
-    collection_name_or_id = await bot.wait_for('message', check=lambda m: m.author == ctx.author)
-    collection_name_or_id = collection_name_or_id.content.strip()
+    if not message.content:
+        await message.channel.send('No message content')
+        print('No message content')
 
-    contract_address = get_contract_address(collection_name_or_id)
-
-    if contract_address is None:
-        await ctx.send(f"Could not find contract address for {collection_name_or_id}")
+    elif message.author == client.user:
         return
 
-    profit = calculate_profit(wallet_address, contract_address)
-    await ctx.send(f"Profit for {wallet_address} in {collection_name_or_id}: {profit:.2f} ETH")
+    if message.content.startswith('/profit'):
+        await message.channel.send("Please enter your wallet address:")
+        wallet_address = await client.wait_for('message', check=lambda m: m.author == message.author)
+        wallet_address = wallet_address.content.strip()
 
-# Start Discord bot
-bot.run(os.getenv('DISCORD_TOKEN'))
+        await message.channel.send("Please enter the contract address or collection name:")
+        collection_name_or_id = await client.wait_for('message', check=lambda m: m.author == message.author)
+        collection_name_or_id = collection_name_or_id.content.strip()
+
+        contract_address = get_contract_address(collection_name_or_id)
+
+        if contract_address is None:
+            await message.channel.send(f"Could not find contract address for {collection_name_or_id}")
+            return
+
+        profit = calculate_profit(wallet_address, contract_address)
+        await message.channel.send(f"Profit for {wallet_address} in {collection_name_or_id}: {profit:.2f} ETH")
+
+# Start Discord client
+client.run(os.getenv('DISCORD_TOKEN'))
