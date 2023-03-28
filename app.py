@@ -97,12 +97,12 @@ async def on_message(message):
 
         contract_address = get_contract_address(collection_name_or_id)
 
-    if contract_address is None:
-        await message.channel.send(f"Could not find contract address for {collection_name_or_id}")
-        return
+        if contract_address is None:
+            await message.channel.send(f"Could not find contract address for {collection_name_or_id}")
+            return
 
-    profit = calculate_profit(wallet_address, contract_address)
-    await message.channel.send(f"Profit for {wallet_address} in {collection_name_or_id}: {profit:.2f} ETH")
+        profit = calculate_profit(wallet_address, contract_address)
+        await message.channel.send(f"Profit for {wallet_address} in {collection_name_or_id}: {profit:.2f} ETH")
 
 # Start Discord client
 client.run(os.getenv('DISCORD_TOKEN'))
